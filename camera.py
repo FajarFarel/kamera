@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QApplication,QMainWindow,QWidget,QVBoxLayout,QLabel,
 from PyQt5.QtGui import QImage,QPixmap
 from PyQt5.QtCore import Qt,QTimer
 from pygrabber.dshow_graph import FilterGraph
+from gesture import GestureClassifier
 from hand_detector import HandDetector
 from stiker import StickerOverlay
 from utils import WindowHelper
@@ -15,6 +16,7 @@ class CameraTab(QWidget):
     def __init__(self):
         super().__init__()
         self.detector=HandDetector()
+        self.classifier=GestureClassifier()
         self.stiker=StickerOverlay()
         self.camera=None
 
@@ -90,15 +92,14 @@ class CameraTab(QWidget):
             # Ambil koordinat pergelangan tangan untuk posisi teks
             x,y=lm[0][1],lm[0][2]
 
-            # Ambil gesture langsung dari detectior 
-            gesture = self.detector.get_gesture(lm)
+            gesture, _ = self.classifier.predict(lm)
 
             if gesture != "NONE":
                 # Gambar stiker PNG dari folder assets
                 self.stiker.draw(frame, gesture, x, y)
 
                 # Tampilkan teks jika mengepal (FIST)
-                if self.detector.is_fist(lm):
+                if gesture == "FIST":
                     cv2.putText(frame, "FIST DETECTED", (x, y - 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
                 if gesture == "PEACE":

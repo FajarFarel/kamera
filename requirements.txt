@@ -4,3 +4,5 @@ PyQt5
 numpy
 Pillow
 pygrabber
+scikit-learn
+joblib
