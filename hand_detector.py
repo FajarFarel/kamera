@@ -29,7 +29,7 @@ class HandDetector:
     # DETECT HAND
     # ============================================
 
-    def detect(self, frame):
+    def detect(self, frame, draw=True):
 
         rgb = cv2.cvtColor(
             frame,
@@ -59,10 +59,8 @@ class HandDetector:
 
                 hands.append(pts)
 
-                self.draw_hand(
-                    frame,
-                    pts
-                )
+                if draw:
+                    self.draw_hand(frame, pts)
 
         return frame, hands
 

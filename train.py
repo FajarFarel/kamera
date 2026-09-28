@@ -1,30 +1,41 @@
+import argparse
 import csv
 import os
 import joblib
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 
-DATASET_FILE = os.path.join("dataset", "gestures.csv")
+DEFAULT_AUGMENTED_FILE = os.path.join("dataset", "gestures_augmented.csv")
+DEFAULT_ORIGINAL_FILE = os.path.join("dataset", "gestures.csv")
 MODEL_DIR = "models"
 MODEL_FILE = os.path.join(MODEL_DIR, "gesture_model.joblib")
 
 
-def load_dataset():
-    if not os.path.exists(DATASET_FILE):
+def get_default_dataset_file():
+    if os.path.exists(DEFAULT_AUGMENTED_FILE):
+        return DEFAULT_AUGMENTED_FILE
+    return DEFAULT_ORIGINAL_FILE
+
+
+def load_dataset(dataset_file=None):
+    if not dataset_file:
+        dataset_file = get_default_dataset_file()
+
+    if not os.path.exists(dataset_file):
         raise FileNotFoundError(
-            f"Dataset tidak ditemukan: {DATASET_FILE}\n"
-            "Jalankan collect_dataset.py terlebih dahulu."
+            f"Dataset tidak ditemukan: {dataset_file}\n"
+            "Jalankan collect_dataset.py atau augment_dataset.py terlebih dahulu."
         )
 
     X = []
     y = []
 
-    with open(DATASET_FILE, "r", newline="", encoding="utf-8") as f:
+    with open(dataset_file, "r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
 
         feature_names = [f"f{i}" for i in range(42)]
@@ -46,11 +57,20 @@ def load_dataset():
             "Kumpulkan lebih banyak data."
         )
 
-    return X, y
+    return X, y, dataset_file
 
 
 def main():
-    X, y = load_dataset()
+    parser = argparse.ArgumentParser(description="Train Gesture Model")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Path file dataset CSV (default: gestures_augmented.csv jika ada, atau gestures.csv)",
+    )
+    args = parser.parse_args()
+
+    X, y, dataset_used = load_dataset(args.dataset)
 
     # stratify menjaga proporsi setiap gesture di train/test.
     X_train, X_test, y_train, y_test = train_test_split(
@@ -61,20 +81,16 @@ def main():
         stratify=y,
     )
 
-    # Random Forest cukup ringan untuk 42 feature landmark.
-    # StandardScaler tidak wajib untuk RF, tetapi pipeline ini memudahkan
-    # jika classifier diganti di kemudian hari.
+    # ExtraTreesClassifier memberikan batas pemisah sangat presisi & confidence tinggi.
     model = Pipeline(
         [
             ("scaler", StandardScaler()),
             (
                 "classifier",
-                RandomForestClassifier(
-                    n_estimators=300,
+                ExtraTreesClassifier(
+                    n_estimators=150,
                     random_state=42,
-                    n_jobs=-1,
-                    class_weight="balanced",
-                    min_samples_leaf=2,
+                    n_jobs=1,
                 ),
             ),
         ]
@@ -82,14 +98,19 @@ def main():
 
     model.fit(X_train, y_train)
 
+    train_prediction = model.predict(X_train)
+    train_accuracy = accuracy_score(y_train, train_prediction)
+
     prediction = model.predict(X_test)
     accuracy = accuracy_score(y_test, prediction)
 
     print("\n=== TRAINING RESULT ===")
+    print(f"Dataset used  : {dataset_used}")
     print(f"Total samples : {len(X)}")
     print(f"Train samples : {len(X_train)}")
     print(f"Test samples  : {len(X_test)}")
-    print(f"Accuracy      : {accuracy * 100:.2f}%")
+    print(f"Training accuracy: {train_accuracy * 100:.2f}%")
+    print(f"Testing accuracy: {accuracy * 100:.2f}%")
     print("\nClassification report:")
     print(classification_report(y_test, prediction, zero_division=0))
 

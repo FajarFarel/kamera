@@ -9,7 +9,6 @@ from PyQt5.QtCore import Qt,QTimer
 from pygrabber.dshow_graph import FilterGraph
 from gesture import GestureClassifier
 from hand_detector import HandDetector
-from stiker import StickerOverlay
 from utils import WindowHelper
 
 class CameraTab(QWidget):
@@ -17,7 +16,6 @@ class CameraTab(QWidget):
         super().__init__()
         self.detector=HandDetector()
         self.classifier=GestureClassifier()
-        self.stiker=StickerOverlay()
         self.camera=None
 
         # Capture settings
@@ -80,7 +78,7 @@ class CameraTab(QWidget):
         frame=cv2.flip(frame,1)
         h, w, _ = frame.shape
 
-        frame,hands=self.detector.detect(frame)
+        frame,hands=self.detector.detect(frame, draw=False)
 
         peace_detected = False
         palm_pos = None
@@ -95,12 +93,15 @@ class CameraTab(QWidget):
             gesture, _ = self.classifier.predict(lm)
 
             if gesture != "NONE":
-                # Gambar stiker PNG dari folder assets
-                self.stiker.draw(frame, gesture, x, y)
-
-                # Tampilkan teks jika mengepal (FIST)
-                if gesture == "FIST":
-                    cv2.putText(frame, "FIST DETECTED", (x, y - 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                cv2.putText(
+                    frame,
+                    gesture,
+                    (x, max(y - 20, 30)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (255, 255, 255),
+                    2,
+                )
 
                 if gesture == "PEACE":
                     peace_detected = True
@@ -276,7 +277,7 @@ class CameraTab(QWidget):
         rgb=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
         h,w,c=rgb.shape
         img=QImage(rgb.data,w,h,c*w,QImage.Format_RGB888)
-        self.label.setPixmap(QPixmap.fromImage(img).scaled(self.label.size(),Qt.KeepAspectRatio,Qt.SmoothTransformation))
+        self.label.setPixmap(QPixmap.fromImage(img).scaled(self.label.size(),Qt.KeepAspectRatio,Qt.FastTransformation))
 
 class MainApp(QMainWindow):
     def __init__(self):

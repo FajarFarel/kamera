@@ -2,6 +2,7 @@ import math
 import os
 
 import joblib
+import numpy as np
 
 
 class GestureClassifier:
@@ -21,7 +22,7 @@ class GestureClassifier:
 
     MODEL_FILE = os.path.join("models", "gesture_model.joblib")
 
-    def __init__(self, model_path=None, confidence_threshold=0.50):
+    def __init__(self, model_path=None, confidence_threshold=0.90):
         self.model_path = model_path or self.MODEL_FILE
         self.confidence_threshold = confidence_threshold
         self.model = None
@@ -39,6 +40,11 @@ class GestureClassifier:
 
         try:
             self.model = joblib.load(self.model_path)
+            if hasattr(self.model, "set_params"):
+                try:
+                    self.model.set_params(classifier__n_jobs=1)
+                except Exception:
+                    pass
             print(f"[GestureClassifier] ML model loaded: {self.model_path}")
         except Exception as e:
             print(f"[GestureClassifier] Gagal load model: {e}")
@@ -94,13 +100,18 @@ class GestureClassifier:
             return "NONE", 0.0
 
         try:
-            prediction = self.model.predict([features])[0]
-
-            confidence = 1.0
-
             if hasattr(self.model, "predict_proba"):
                 probabilities = self.model.predict_proba([features])[0]
-                confidence = float(max(probabilities))
+                best_idx = int(np.argmax(probabilities))
+                confidence = float(probabilities[best_idx])
+
+                if hasattr(self.model, "classes_"):
+                    prediction = self.model.classes_[best_idx]
+                else:
+                    prediction = self.model.predict([features])[0]
+            else:
+                prediction = self.model.predict([features])[0]
+                confidence = 1.0
 
             if confidence < self.confidence_threshold:
                 return "NONE", confidence
